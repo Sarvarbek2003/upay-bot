@@ -58,4 +58,4 @@ insert into master_service (service_id, m_service_id, service_name) values
 (2, 314, '🚕 GLOBALTAXI');
 
 insert into master_service (service_id, m_service_id, service_name) values 
-(3, 471, '💎 Webmoney');
+(3, 440, '🥝 Qiwi RUB');

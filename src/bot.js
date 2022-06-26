@@ -63,10 +63,11 @@ bot.on('text', async(msg) => {
             await orders({chatId, schot: text})
             let user = await orders({},chatId)   
             let order = user[0]
-            let res = await axios.get(`http://localhost:4000/find_accaunt?accaunt=${text}&serviceId=${order.service_id}`)
+            let res = await axios.get(`http://xostlive.uz:4000/find_accaunt?accaunt=${text}&serviceId=${order.service_id}`)
             if (res.data.data?.message) return bot.sendMessage(chatId, res.data.data?.message, {reply_markup: cancel})
             else if (res.data.data?.balance) bot.sendMessage(chatId, `Kartangizda ${res.data.data.balance} so'm bor\nTo'ldirmoqchi bo'gan summangizni yozing`, {reply_markup: cancel})
             else if (res.data.data?.currencyRate && res.data.data?.currencySymbol == 'USD') bot.sendMessage(chatId, `📈 Kurs: 1 USD = ${res.data.data.currencyRate} so'm\n💰 To'ldirmoqchi bo'lgan summanigizni so'mda yozing`)
+            else if (res.data.data?.currencyRate && res.data.data?.currencySymbol == 'RUB') bot.sendMessage(chatId, `📈 Kurs: 1 RUB = ${res.data.data.currencyRate} so'm\n💰 To'ldirmoqchi bo'lgan summanigizni so'mda yozing`)
             else bot.sendMessage(chatId, "To'ldirmoqchi bo'lgan summangizni yozing")
             await insertUser({chatId, steep: 'summa'}) 
         }catch(error){
@@ -77,7 +78,7 @@ bot.on('text', async(msg) => {
             let user = await orders({},chatId)
             let order = user[0]
             if (isNaN(text)) return bot.sendMessage(chatId, 'Summani to`g `ri kiriting')
-            let res = await axios.get(`http://localhost:4000/pay?accaunt=${order.schot}&sum=${text}&cardNum=${order.card_number}&cardDate=${order.card_date}&serviceId=${order.service_id}`)
+            let res = await axios.get(`http://xostlive.uz:4000/pay?accaunt=${order.schot}&sum=${text}&cardNum=${order.card_number}&cardDate=${order.card_date}&serviceId=${order.service_id}`)
             await orders({chatId, summa: text})
             if(res.data?.verfyId) await orders({chatId, verify: res.data?.verfyId})
             if(res.data?.message != 'Card not found') bot.sendMessage(chatId, `${res.data?.message} raqamiga yuborilgan sms kodni kiriting`, {reply_markup: cancel})
@@ -94,10 +95,11 @@ bot.on('text', async(msg) => {
         try{
             let user = await orders({},chatId)
             let order = user[0]
-            let res = await axios.get(`http://localhost:4000/code?verfyId=${order.verify}&phoneCode=${text}`)
-            if(res.data.message) bot.sendMessage(chatId, res.data.message, {reply_markup: await service(true)}) 
+            let res = await axios.get(`http://xostlive.uz:4000/code?verfyId=${order.verify}&phoneCode=${text}`)
+            if(res.data.paymentDate) bot.sendMessage(chatId, `${res.data.amout} so'm miqdoridagi summa ${res.data.accaunt} ${res.data.serviceName} hisobiga o'tkazildi `, {reply_markup: await service(true)}) 
             else if(res.data?.data?.message) bot.sendMessage(chatId, res.data.data.message, {reply_markup: await service(true)})
-            await insertUser({chatId, steep: 'home'})   
+            else bot.sendMessage(chatId, res.data.message)
+            await insertUser({chatId, steep: 'home'}, {reply_markup: await service(true)})   
         }catch (error){
             console.log(error)
         }
