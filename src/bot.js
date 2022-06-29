@@ -59,7 +59,11 @@ bot.on('text', async(msg) => {
         }
 
     } else if(steep ==  'schet'){
-        try{
+        try{ 
+            let phone = ""
+            if(/^998(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text.slice(3)
+            else if(/^(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text
+            else return bot.sendMessage(chatId, "Telefon raqamingizni to'g'ri yozing\n<i>Nauna 998901234567 yoki 901234567</i>", {parse_mode: "HTML", reply_markup:cancel})
             await orders({chatId, schot: text})
             let user = await orders({},chatId)   
             let order = user[0]
