@@ -1,5 +1,5 @@
 const Telegram = require('node-telegram-bot-api')
-const token = '5406126758:AAGFtCm55SOuBQN60olCrNknN2pJx5BhE4A'
+const token = 'token'
 const bot = new Telegram(token, {polling:true}) 
 
 const { cards, users, insertUser, selectService, orders, deleteOrder} = require('./query')
