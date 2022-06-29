@@ -1,12 +1,13 @@
 const Telegram = require('node-telegram-bot-api')
 const token = '5406126758:AAGFtCm55SOuBQN60olCrNknN2pJx5BhE4A'
-
 const bot = new Telegram(token, {polling:true}) 
+
 const { cards, users, insertUser, selectService, orders, deleteOrder} = require('./query')
 const { home, cancel } = require('./menu')
 const { default: axios } = require('axios')
-const hisob = ''
+
 bot.on('text', async(msg) => {
+    
     const chatId = msg.chat.id;
     const text = msg.text;
     const steep = (await users(chatId))?.steep
@@ -60,14 +61,17 @@ bot.on('text', async(msg) => {
 
     } else if(steep ==  'schet'){
         try{ 
-            let phone = ""
-            if(/^998(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text.slice(3)
-            else if(/^(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text
-            else return bot.sendMessage(chatId, "Telefon raqamingizni to'g'ri yozing\n<i>Nauna 998901234567 yoki 901234567</i>", {parse_mode: "HTML", reply_markup:cancel})
-            await orders({chatId, schot: text})
             let user = await orders({},chatId)   
             let order = user[0]
-            let res = await axios.get(`http://localhost:4000/find_accaunt?accaunt=${text}&serviceId=${order.service_id}`)
+            let phone = ""
+            if([628, 40, 132, 8, 163, 5].includes(order.service_id)){
+                if(/^998(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text.slice(3)
+                else if(/^(9[012345789]|3[3]|7[1]|8[8])[0-9]{7}$/.test(text)) phone = text
+                else return bot.sendMessage(chatId, "Telefon raqamingizni to'g'ri yozing\n<i>Nauna 998901234567 yoki 901234567</i>", {parse_mode: "HTML", reply_markup:cancel})
+            }
+            phone = text
+            await orders({chatId, schot: text})
+            let res = await axios.get(`http://localhost:4000/find_accaunt?accaunt=${phone}&serviceId=${order.service_id}`)
             if (res.data.data?.message) return bot.sendMessage(chatId, res.data.data?.message, {reply_markup: cancel})
             else if (res.data.data?.balance) bot.sendMessage(chatId, `Kartangizda ${res.data.data.balance} so'm bor\nTo'ldirmoqchi bo'gan summangizni yozing`, {reply_markup: cancel})
             else if (res.data.data?.currencyRate && res.data.data?.currencySymbol == 'USD') bot.sendMessage(chatId, `📈 Kurs: 1 USD = ${res.data.data.currencyRate} so'm\n💰 To'ldirmoqchi bo'lgan summanigizni so'mda yozing`)
@@ -79,16 +83,20 @@ bot.on('text', async(msg) => {
         }
     } else if (steep == 'summa'){
         try {
+            if (isNaN(text)) return bot.sendMessage(chatId, 'Summani to`g `ri kiriting')
+            if(text < 1000 || text > 1000000000) return bot.sendMessage(chatId, "Minimal summa 1000 so'm Maximal summa 1000000000" )
             let user = await orders({},chatId)
             let order = user[0]
-            if (isNaN(text)) return bot.sendMessage(chatId, 'Summani to`g `ri kiriting')
             let res = await axios.get(`http://localhost:4000/pay?accaunt=${order.schot}&sum=${text}&cardNum=${order.card_number}&cardDate=${order.card_date}&serviceId=${order.service_id}`)
             await orders({chatId, summa: text})
             if(res.data?.verfyId) await orders({chatId, verify: res.data?.verfyId})
-            if(res.data?.message != 'Card not found') bot.sendMessage(chatId, `${res.data?.message} raqamiga yuborilgan sms kodni kiriting`, {reply_markup: cancel})
-            else if(res.data.message == 'Card not found') {
-                bot.sendMessage(chatId, 'Kiritilgan karta topilmadi kartangiz raqmini yaxshilab tekshiring yoki boshqa karta kiriting',{reply_markup: await service(true)})
+            if(res.data?.message != 'Card not found') {
+                if(res.data?.message == 'Due to exceeding input attempts, your card is temporarily blocked') return bot.sendMessage(chatId, res.data?.message)
+                
+                bot.sendMessage(chatId, `${ res.data?.message } raqamiga yuborilgan sms kodni kiriting`, { reply_markup: cancel })
+            }else if(res.data.message == 'Card not found') {
                 await insertUser({chatId, steep:"home"})
+                return bot.sendMessage(chatId, 'Kiritilgan karta topilmadi kartangiz raqmini yaxshilab tekshiring yoki boshqa karta kiriting',{ reply_markup: await service(true) })
             }   
             await insertUser({chatId, steep: 'sms'})  
         } catch (error) {
@@ -97,13 +105,23 @@ bot.on('text', async(msg) => {
         
     } else if (steep ==  'sms'){
         try{
+            if (isNaN(text) && text.length  == 6) return bot.sendMessage(chatId, 'Iltimos raqamigizga yuborilgan sms kodni kiriting')
             let user = await orders({},chatId)
             let order = user[0]
             let res = await axios.get(`http://localhost:4000/code?verfyId=${order.verify}&phoneCode=${text}`)
-            if(res.data.paymentDate) bot.sendMessage(chatId, `${res.data.amout} so'm miqdoridagi summa ${res.data.accaunt} ${res.data.serviceName} hisobiga o'tkazildi `, {reply_markup: await service(true)}) 
-            else if(res.data?.data?.message) bot.sendMessage(chatId, res.data.data.message, {reply_markup: await service(true)})
-            else bot.sendMessage(chatId, res.data.message)
-            await insertUser({chatId, steep: 'home'}, {reply_markup: await service(true)})   
+            if(res.data.paymentDate){
+                await insertUser({chatId, steep: 'home'})  
+                return bot.sendMessage(chatId, `${res.data.amount} so'm miqdoridagi summa ${res.data.account} ${res.data.serviceName} hisobiga o'tkazildi `, {reply_markup: await service(true)}) 
+            } 
+            else if(res.data?.data?.message) bot.sendMessage(chatId, res.data.data.message, { reply_markup: await service(true) })
+            else {
+                if(res.data.message == "Kodni kiritishdagi urinishlar soni belgilangan me'yordan oshib ketdi"){
+                    await insertUser({chatId, steep: 'home'})   
+                    return bot.sendMessage(chatId, res.data.message, { reply_markup: await service(true) })
+                }
+                else  
+                    bot.sendMessage(chatId, res.data.message)
+            }
         }catch (error){
             console.log(error)
         }
